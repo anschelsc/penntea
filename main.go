@@ -19,6 +19,8 @@ const page = `
 <head>
 <title>Is there tea yet?</title>
 
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
 footer {
 	position: absolute;

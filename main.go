@@ -18,15 +18,31 @@ const page = `
 <html>
 <head>
 <title>Is there tea yet?</title>
+
+<style>
+footer {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	padding: 1rem;
+	text-align: center;
+}
+</style>
+
 </head>
 
 <body>
+<header>
+<h1>Is there tea yet?</h1>
 {{if .Recent}}
-Probably!
+<h2>Probably!<h2>
 {{else}}
-Probably not.
+<h2>Probably not.<h2>
 {{end}}
+</header>
 Tea was last reported on {{.T}}. To report tea yourself, click <a href="/set">here</a>.
+<footer>App by Anschel Schaffer-Cohen. Tea emoji in the favicon provided by <a href="https://www.emojione.com/">EmojiOne</a>.</footer>
 </body>
 `
 

@@ -12,6 +12,7 @@ import (
 type pageInfo struct {
 	T      string
 	Recent bool
+	Box    string
 }
 
 const page = `
@@ -43,7 +44,7 @@ footer {
 <h2>Probably not.<h2>
 {{end}}
 </header>
-Tea was last reported on {{.T}}. To report tea yourself, click <a href="/set">here</a>.
+Tea was last reported on {{.T}}. To report tea yourself, click <a href="/{{.Box}}/set">here</a>.
 <footer>App by Anschel Schaffer-Cohen. Tea emoji in the favicon provided by <a href="https://www.emojione.com/">EmojiOne</a>.</footer>
 </body>
 `
@@ -59,8 +60,11 @@ func init() {
 	if philly, err = time.LoadLocation("America/New_York"); err != nil {
 		panic("What happened to New York?")
 	}
-	http.HandleFunc("/", getTime)
-	http.HandleFunc("/set", setTime)
+	http.HandleFunc("/", getTime("last"))
+	http.HandleFunc("/last", getTime("last"))
+	http.HandleFunc("/last/set", setTime("last"))
+	http.HandleFunc("/sandbox", getTime("sandbox"))
+	http.HandleFunc("/sandbox/set", setTime("sandbox"))
 }
 
 func recent(t time.Time) bool {
@@ -72,26 +76,31 @@ type last struct {
 	T time.Time
 }
 
-func setTime(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	k := datastore.NewKey(c, "time", "last", 0, nil)
-	if _, err := datastore.Put(c, k, &last{time.Now()}); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+func setTime(box string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c := appengine.NewContext(r)
+		k := datastore.NewKey(c, "time", box, 0, nil)
+		if _, err := datastore.Put(c, k, &last{time.Now()}); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		http.Redirect(w, r, "/"+box, http.StatusFound)
 	}
-	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-func getTime(w http.ResponseWriter, r *http.Request) {
-	c := appengine.NewContext(r)
-	k := datastore.NewKey(c, "time", "last", 0, nil)
-	l := new(last)
-	if err := datastore.Get(c, k, l); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+func getTime(box string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c := appengine.NewContext(r)
+		k := datastore.NewKey(c, "time", box, 0, nil)
+		l := new(last)
+		if err := datastore.Get(c, k, l); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		pageT.Execute(w, &pageInfo{
+			T:      l.T.In(philly).Format("January 2 (Monday) at 3:04 PM"),
+			Recent: recent(l.T),
+			Box:    box,
+		})
 	}
-	pageT.Execute(w, &pageInfo{
-		T:      l.T.In(philly).Format("January 2 (Monday) at 3:04 PM"),
-		Recent: recent(l.T),
-	})
 }

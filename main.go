@@ -10,8 +10,9 @@ import (
 )
 
 type pageInfo struct {
-	T      string // Time tea was last reported
-	Recent bool   // Recent enough that tea is probably still there?
+	When   string // Time tea was last reported
+	Exists bool   // Does tea exist?
+	Un     bool   // Was tea unreported?
 	Box    string // Are we in the sandbox?
 }
 
@@ -38,13 +39,13 @@ footer {
 <body>
 <header>
 <h1>Is there tea yet?</h1>
-{{if .Recent}}
+{{if .Exists}}
 <h2>Probably!<h2>
 {{else}}
 <h2>Probably not.<h2>
 {{end}}
 </header>
-Tea was last reported on {{.T}}. To report tea yourself, click <a href="/{{.Box}}/set">here</a>.
+Tea was last {{if .Un}}un{{end}}reported {{.When}}. To report tea yourself, click <a href="/{{.Box}}/set">here</a>.
 <footer>App by Anschel Schaffer-Cohen. Tea emoji in the favicon provided by <a href="https://www.emojione.com/">EmojiOne</a>.</footer>
 </body>
 `
@@ -63,9 +64,11 @@ func init() {
 	}
 	http.HandleFunc("/", getTime("last")) // Alias for /last
 	http.HandleFunc("/last", getTime("last"))
-	http.HandleFunc("/last/set", setTime("last"))
+	http.HandleFunc("/last/set", setTime("last", true))
+	http.HandleFunc("/last/unset", setTime("last", false))
 	http.HandleFunc("/sandbox", getTime("sandbox"))
-	http.HandleFunc("/sandbox/set", setTime("sandbox"))
+	http.HandleFunc("/sandbox/set", setTime("sandbox", true))
+	http.HandleFunc("/sandbox/unset", setTime("sandbox", false))
 }
 
 func recent(t time.Time) bool {
@@ -73,10 +76,17 @@ func recent(t time.Time) bool {
 	return d < longEnough
 }
 
-// The datastore demands we give it structs, even if there's only one value to care about.
-// This doesn't waste any space, but it's annoying to type around.
+func format(t time.Time) string {
+	d := time.Since(t)
+	if d < 24*time.Hour {
+		return t.In(philly).Format("at 3:04 PM")
+	}
+	return "more than 24 hours ago"
+}
+
 type last struct {
-	T time.Time
+	T      time.Time
+	Exists bool
 }
 
 // These two handler functions can take any box, not just /last and /sandbox.
@@ -85,21 +95,21 @@ type last struct {
 // those two possible boxes hardcoded.
 
 // For each box, the datastore contains just one entity, whose key is the name
-// of the box and whose sole value "T" is the time tea was last reported.
-// setTime() stores the current time, and getTime() fetches the stored time.
-// Note that time is stored without any timezone changes--presumably Google is
-// using UTC internally--and only converted to local time on output. That means
-// (for instance) that recent() will give correct answers during the DST
-// changeover.
+// of the box and whose values are the time of the last report and whether tea
+// existed at that time.  setTime() stores the current time, and getTime()
+// fetches the stored time.  Note that time is stored without any timezone
+// changes--presumably Google is using UTC internally--and only converted to
+// local time on output. That means (for instance) that recent() will give
+// correct answers during the DST changeover.
 
-func setTime(box string) func(http.ResponseWriter, *http.Request) {
-	// http.HandleFunc() wants to be given a function with ResponseWriter and
-	// *Request arguments, but we want that function to know which box to use;
-	// so we use a closure like this.
+func setTime(box string, exists bool) func(http.ResponseWriter, *http.Request) {
+	// http.HandleFunc() wants to be given a function with ResponseWriter
+	// and *Request arguments, but we want that function to know which box
+	// and exists value to use; so we use a closure like this.
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := appengine.NewContext(r)
 		k := datastore.NewKey(c, "time", box, 0, nil)
-		if _, err := datastore.Put(c, k, &last{time.Now()}); err != nil {
+		if _, err := datastore.Put(c, k, &last{T: time.Now(), Exists: exists}); err != nil {
 			// This can only fail if Google screws up
 			http.Error(w, err.Error(), 500)
 			return
@@ -125,8 +135,9 @@ func getTime(box string) func(http.ResponseWriter, *http.Request) {
 		// recentness, and box in the appropriate slots. Note the time
 		// conversion.
 		pageT.Execute(w, &pageInfo{
-			T:      l.T.In(philly).Format("January 2 (Monday) at 3:04 PM"),
-			Recent: recent(l.T),
+			When:   format(l.T),
+			Exists: l.Exists && recent(l.T),
+			Un:     !l.Exists,
 			Box:    box,
 		})
 	}

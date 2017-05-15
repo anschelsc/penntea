@@ -25,28 +25,66 @@ const page = `
 
 <style>
 footer {
-	position: absolute;
+     font-size: 70%;
+     font-family: arial, sans-serif;
+     position: absolute;
 	right: 0;
 	bottom: 0;
 	left: 0;
 	padding: 1rem;
 	text-align: center;
 }
+td {
+     text-align: center;
+     background-color: #668800;
+     color: white;
+     font-family: arial, sans-serif;
+     padding: 0 0 0 0;
+}
+tr {
+     padding: 0 0 0 0;
+     border: none;
+}
+table {
+     border: none;
+     border-collapse: collapse;
+}
+.bigtype {
+     font-size: 150%;
+}
+.smallwidth {
+     width: 30%;
+}
+.centered {
+     margin: auto;
+}
+
 </style>
 
 </head>
 
 <body>
-<header>
-<h1>Is there tea yet?</h1>
-{{if .Exists}}
-<h2>Probably!<h2>
-{{else}}
-<h2>Probably not.<h2>
-{{end}}
-</header>
-Tea was last {{if .Un}}un{{end}}reported {{.When}}. To report tea yourself, click <a href="/{{.Box}}/set">here</a>.
-<footer>App by Anschel Schaffer-Cohen. Tea emoji in the favicon provided by <a href="https://www.emojione.com/">EmojiOne</a>.</footer>
+
+<table class="centered">
+  <tr>
+    <td colspan="3" class="bigtype">Tea Status</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td><img src="static/{{if not .Exists}}n{{end}}exists.png"></td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td colspan="3">Tea was last {{if .Un}}un{{end}}reported {{.When}}</td>
+  </tr>
+  <tr>
+    <td colspan="3"><a href="{{.Box}}/{{if .Exists}}un{{end}}set"><img class="smallwidth" src="static/button.png"></a></td>
+  </tr>
+</table>
+
+
+
+<footer class="centered">App by Anschel Schaffer-Cohen. Design by Cullen Schaffer. Tea emoji in the favicon provided by <a href="https://www.emojione.com/">EmojiOne</a>.</footer>
 </body>
 `
 
